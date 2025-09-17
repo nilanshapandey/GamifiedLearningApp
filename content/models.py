@@ -11,6 +11,7 @@ class Subject(models.Model):
     def __str__(self):
         return f"{self.name} ({self.class_level})"
 
+
 class Lesson(models.Model):
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='lessons')
     title = models.CharField(max_length=255)
@@ -21,6 +22,22 @@ class Lesson(models.Model):
 
     class Meta:
         ordering = ['order']
+
+    def __str__(self):
+        return self.title
+
+# Topic model linked to Lesson
+class Topic(models.Model):
+    lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='topics')
+    title = models.CharField(max_length=255)
+    order = models.PositiveIntegerField(default=1)
+    content = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['order']
+
+    def __str__(self):
+        return self.title
 
 class Quiz(models.Model):
     lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='quizzes')
