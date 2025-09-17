@@ -14,13 +14,13 @@ urlpatterns = [
     path("sync/", include("sync.urls")),
 
     # 🔹 Main Pages
-    path("", account_views.index, name="index"),
-    path("register/", account_views.choose_role, name="register"),
+    path("", account_views.login_view, name="login"),
+    # path("register/", account_views.choose_role, name="register"),
 
     # Dashboards
     path("student/dashboard/", account_views.student_dashboard, name="student_dashboard"),
-    path("teacher/dashboard/", account_views.teacher_dashboard, name="teacher_dashboard"),
-    path("parent/dashboard/", account_views.parent_dashboard, name="parent_dashboard"),
+    # path("teacher/dashboard/", account_views.teacher_dashboard, name="teacher_dashboard"),
+    # path("parent/dashboard/", account_views.parent_dashboard, name="parent_dashboard"),
 ]
 
 # 🔹 Serve media files in development

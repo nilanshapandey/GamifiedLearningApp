@@ -1,8 +1,6 @@
 from django.db import models
 
-# Create your models here.
 from django.db import models
-from django.utils.text import slugify
 
 class Subject(models.Model):
     name = models.CharField(max_length=200)
@@ -13,24 +11,8 @@ class Subject(models.Model):
     def __str__(self):
         return f"{self.name} ({self.class_level})"
 
-class Course(models.Model):
-    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='courses')
-    title = models.CharField(max_length=255)
-    slug = models.SlugField(max_length=255, unique=True, blank=True)
-    description = models.TextField(blank=True)
-    cover = models.ImageField(upload_to='course_covers/', null=True, blank=True)
-
-    def save(self, *args, **kwargs):
-        if not self.slug:
-            base = f"{self.subject.name}-{self.title}"
-            self.slug = slugify(base)[:200]
-        super().save(*args, **kwargs)
-
-    def __str__(self):
-        return self.title
-
 class Lesson(models.Model):
-    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='lessons')
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='lessons')
     title = models.CharField(max_length=255)
     order = models.PositiveIntegerField(default=1)
     content_text = models.TextField(blank=True)
@@ -39,9 +21,6 @@ class Lesson(models.Model):
 
     class Meta:
         ordering = ['order']
-
-    def __str__(self):
-        return f"{self.course.title} — {self.title}"
 
 class Quiz(models.Model):
     lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='quizzes')
@@ -69,3 +48,4 @@ class Choice(models.Model):
 
     def __str__(self):
         return self.text[:80]
+        return self.title

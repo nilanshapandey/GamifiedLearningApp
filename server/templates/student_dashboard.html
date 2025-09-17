@@ -1,12 +1,861 @@
-{% extends "base.html" %}
-{% block title %}Student Dashboard{% endblock %}
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Student Dashboard</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    :root{
+      --primary:#0d6efd; --muted:#6c757d; --card-bg:#fff; --bg:#f4f7fb;
+      --dark-bg:#0f1720; --dark-card:#111827;
+    }
+    *{box-sizing:border-box}
+    body{ margin:0; font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:var(--bg); color:#111; }
+    .container{ display:flex; min-height:100vh; }
+    /* Sidebar */
+  .sidebar{ width:240px; background:#111; color:#fff; padding:18px 12px; position:fixed; left:0; top:0; bottom:0; overflow:auto;}
+<script>
+// All JS code moved here to prevent raw JS rendering
+const DICTIONARY = {
+  "electricity": { en:"electricity", hi:"बिजली", od:"ବିଦ୍ୟୁତ୍ତ", mr:"वीज", meaning_en:"A form of energy resulting from charged particles." },
+  "capacitor": { en:"capacitor", hi:"कॅपेसिटर", od:"କେପାସିଟର୍", mr:"कॅपेसिटर", meaning_en:"An electrical component that stores charge." },
+  "student": { en:"student", hi:"छात्र/छात्रा", od:"ଛାତ୍ର/ଛାତ୍ରୀ", mr:"विद्यार्थी", meaning_en:"A person who is studying at a school or college." },
+  "lesson": { en:"lesson", hi:"पाठ", od:"ପାଠ", mr:"धडा", meaning_en:"Content covering a topic." },
+  "chapter": { en:"chapter", hi:"अध्याय", od:"ଅଧ୍ୟାୟ", mr:"अध्याय", meaning_en:"A section of a course or book." },
+  "math": { en:"math", hi:"गणित", od:"ଗଣିତ", mr:"गणित", meaning_en:"The study of numbers, shapes, and patterns." },
+  "hindi": { en:"hindi", hi:"हिन्दी", od:"ହିନ୍ଦୀ", mr:"हिंदी", meaning_en:"A language spoken in India." },
+  "english": { en:"english", hi:"अंग्रेज़ी", od:"ଇଂରାଜୀ", mr:"इंग्रजी", meaning_en:"A global language." },
+  "computer science": { en:"computer science", hi:"कंप्यूटर विज्ञान", od:"କମ୍ପ୍ୟୁଟର ସାଇନ୍ସ", mr:"संगणक विज्ञान", meaning_en:"The study of computers and computational systems." },
+  "physics": { en:"physics", hi:"भौतिकी", od:"ଭୌତିକୀ", mr:"भौतिकशास्त्र", meaning_en:"The study of matter, energy, and their interactions." },
+  "chemistry": { en:"chemistry", hi:"रसायन विज्ञान", od:"ରସାୟନ ବିଜ୍ଞାନ", mr:"रसायनशास्त्र", meaning_en:"The study of substances and their reactions." },
+  "biology": { en:"biology", hi:"जीव विज्ञान", od:"ଜୀବ ବିଜ୍ଞାନ", mr:"जीवशास्त्र", meaning_en:"The study of living organisms." },
+  "geography": { en:"geography", hi:"भूगोल", od:"ଭୂଗୋଳ", mr:"भूगोल", meaning_en:"The study of Earth's surface and features." },
+  "history": { en:"history", hi:"इतिहास", od:"ଇତିହାସ", mr:"इतिहास", meaning_en:"The study of past events." },
+  "ethics": { en:"ethics", hi:"नैतिकता", od:"ନୈତିକତା", mr:"नीतिशास्त्र", meaning_en:"Moral principles that govern behavior." }
+};
 
-{% block content %}
-<h2>Welcome, {{ user.username }}</h2>
-<ul>
-    <li><a href="#">My Profile</a></li>
-    <li><a href="#">My Courses</a></li>
-    <li><a href="#">Take Quiz</a></li>
-    <li><a href="#">Progress</a></li>
-</ul>
-{% endblock %}
+function $id(id){ return document.getElementById(id); }
+function enableDictionaryHover() {
+  document.querySelectorAll('.subject-card, .lesson-item, .topic-item').forEach(function(el){
+    el.onmouseover = function(e){
+      var text = (el.innerText || '').toLowerCase().trim();
+      if(DICTIONARY[text]) {
+        var tip = $id('dictTip');
+        tip.innerHTML = '<strong>'+text+'</strong><br>'+DICTIONARY[text].meaning_en;
+        tip.style.display = 'block';
+        tip.style.left = (e.pageX+10)+'px';
+        tip.style.top = (e.pageY-10)+'px';
+      }
+    };
+    el.onmouseout = function(){ $id('dictTip').style.display = 'none'; };
+  });
+}
+
+function chatAsk(){
+  var input = $id('chatInput').value.trim().toLowerCase();
+  if(!input) return;
+  var box = $id('chatBox');
+  var answer = '';
+  for(var key in DICTIONARY){
+    if(input.includes(key)){
+      answer = DICTIONARY[key].meaning_en;
+      break;
+    }
+  }
+  if(!answer) answer = 'Sorry, I do not have an answer for that yet.';
+  box.innerHTML += '<div class="msg-user">'+input+'</div>';
+  box.innerHTML += '<div class="msg-bot">'+answer+'</div>';
+  $id('chatInput').value = '';
+  box.scrollTop = box.scrollHeight;
+}
+
+// Smart Notebook: show saved notes after saving
+function saveNotes(){
+  const txt = $id('smartNotes').value.trim();
+  if(!txt){ alert('Write something to save'); return; }
+  const notes = JSON.parse(localStorage.getItem('notes_v2') || '[]');
+  const item = { id: Date.now(), text: txt, created: new Date().toISOString() };
+  notes.unshift(item);
+  localStorage.setItem('notes_v2', JSON.stringify(notes));
+  loadSavedNotes();
+  alert('Saved locally');
+}
+function loadSavedNotes(){
+  const list = $id('savedNotesList'); const notes = JSON.parse(localStorage.getItem('notes_v2') || '[]');
+  list.innerHTML = notes.map(n=>`<div class="card" style="padding:8px;margin-bottom:8px;"><div style="white-space:pre-wrap">${n.text}</div><div style="margin-top:6px;"><small>${new Date(n.created).toLocaleString()}</small></div></div>`).join('');
+}
+window.addEventListener('DOMContentLoaded', ()=>{
+  enableDictionaryHover();
+  loadSavedNotes();
+});
+</script>
+    .brand{ text-align:center; font-weight:700; margin-bottom:12px; font-size:18px;}
+    .nav{ margin-top:10px; padding:0; list-style:none; }
+    .nav a{ display:block; color:#fff; padding:10px 12px; border-radius:8px; margin:6px 0; text-decoration:none; cursor:pointer; }
+    .nav a:hover{ background:rgba(255,255,255,0.12); }
+    /* Main */
+    .main{ margin-left:260px; padding:20px; flex:1; }
+    .topbar{ display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:16px; }
+    .card{ background:var(--card-bg); border-radius:10px; box-shadow:0 8px 20px rgba(15,15,15,0.06); padding:16px; margin-bottom:14px; }
+    .profile-row{ display:flex; gap:16px; align-items:center; }
+    .avatar{ width:110px; height:110px; border-radius:50%; object-fit:cover; border:3px solid var(--primary); }
+    .info-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-top:12px; }
+    .info{ background:rgba(0,0,0,0.03); padding:10px; border-radius:8px; font-size:14px; }
+    h3,h4{ margin:0 0 8px 0; }
+    /* grids/cards */
+    .grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:12px; }
+    .subject-card,.badge-card,.student-card{ padding:12px; border-radius:10px; transition:transform .12s, box-shadow .12s; cursor:pointer; background:#fff; }
+    .subject-card:hover{ transform:translateY(-6px); box-shadow:0 12px 30px rgba(10,10,10,0.08); }
+    .lesson-list,.topic-list{ list-style:none; padding:0; margin:0; }
+    .lesson-item,.topic-item{ padding:8px; border-bottom:1px dashed rgba(0,0,0,0.04); display:flex; justify-content:space-between; align-items:center; }
+    .btn{ display:inline-block; padding:7px 12px; border-radius:8px; background:var(--primary); color:#fff; text-decoration:none; cursor:pointer; border:0; font-size:14px;}
+    .btn-outline{ background:transparent; border:1px solid var(--primary); color:var(--primary); }
+    .small{ font-size:13px; color:var(--muted); }
+    .progress{ width:100%; background:#eee; height:16px; border-radius:10px; overflow:hidden; }
+    .progress-bar{ height:100%; background:linear-gradient(90deg,var(--primary),#0069d1); width:0%; color:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; }
+    /* notebook */
+    #smartNotes{ width:100%; min-height:120px; border-radius:8px; padding:10px; border:1px solid #ddd; box-sizing:border-box; font-size:15px; }
+    .canvas-wrap{ background:#fff; border-radius:8px; padding:8px; border:1px solid #ddd; }
+    canvas{ background:#fff; width:100%; height:320px; touch-action:none; border-radius:6px; display:block; cursor:crosshair; }
+    .tool-bar{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:8px; }
+    .thumb{ width:120px; height:80px; object-fit:cover; border:1px solid #ddd; margin:6px; display:inline-block; }
+    /* chat */
+    #chatBox{ height:260px; overflow:auto; border:1px solid #ddd; padding:8px; border-radius:8px; background:#fafafa; }
+    .msg-user{ text-align:right; color:var(--primary); margin:6px 0; }
+    .msg-bot{ text-align:left; color:#333; margin:6px 0; }
+    /* tooltip dictionary */
+    .dict-tip{ position:fixed; z-index:9999; background:#fff;border:1px solid #ccc;padding:8px;border-radius:6px; display:none; min-width:180px; box-shadow:0 8px 30px rgba(0,0,0,0.12); font-size:14px; }
+    /* responsive */
+    @media (max-width:900px){ .sidebar{ display:none; } .main{ margin-left:0; padding:12px; } }
+    /* dark mode overrides */
+  .dark { background:var(--dark-bg); color:#e6eef6; }
+  .dark .card{ background:var(--dark-card); color:#e6eef6; box-shadow:none; border:1px solid rgba(255,255,255,0.03); }
+  .dark .dict-tip{ background:#222;color:#fff;border:1px solid #333; }
+  .dark .sidebar { background:#222; color:#e6eef6; }
+  .dark .nav a { color:#e6eef6; }
+  .dark .nav a:hover { background:rgba(255,255,255,0.08); }
+  .dark .main { background:var(--dark-bg); color:#e6eef6; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <aside class="sidebar">
+      <div class="brand">🎮 <span id="appName">Gamified Learning</span></div>
+      <ul class="nav">
+  <li><a onclick="showPanel('profile')"><span data-i18n="profile">Profile</span></a></li>
+  <li><a onclick="showPanel('subjects')"><span data-i18n="all_subjects">All Subjects</span></a></li>
+  <li><a onclick="showPanel('quiz')"><span data-i18n="quiz">Quiz</span></a></li>
+  <li><a onclick="showPanel('progress')"><span data-i18n="progress">Progress</span></a></li>
+  <li><a onclick="showPanel('notebook')"><span data-i18n="notebook">Smart Notebook</span></a></li>
+  <li><a onclick="showPanel('chatbot')"><span data-i18n="chatbot">Chatbot</span></a></li>
+        <li><a href="{% url 'accounts:logout' %}"><span data-i18n="logout">Logout</span></a></li>
+      </ul>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <h3 id="pageTitle" data-i18n="dashboard">Dashboard</h3>
+          <small id="pageSubtitle">Welcome, {{ student.student_name }}</small>
+        </div>
+
+        <div style="display:flex; gap:8px; align-items:center;">
+          <select id="uiLang" onchange="setUILang(this.value)">
+            <option value="en">English</option>
+            <option value="hi">हिन्दी</option>
+            <option value="od">ଓଡ଼ିଆ</option>
+            <option value="mr">मराठी</option>
+          </select>
+          <button class="btn" onclick="toggleDark()">Toggle</button>
+        </div>
+      </div>
+
+      <!-- PROFILE PANEL -->
+      <section id="panel-profile" class="card" style="display:block;">
+        <div class="profile-row">
+          <div>
+            <!-- Avatar removed -->
+          </div>
+
+          <div style="flex:1;">
+            <h4 id="profileName">{{ student.student_name }}</h4>
+            <p><strong>Email:</strong> <span id="profileEmail">{{ student.user.email }}</span></p>
+
+            <div class="info-grid">
+              <div class="info"><strong data-i18n="roll">Roll No</strong><div id="profileRoll">{{ student.roll_number }}</div></div>
+              <div class="info"><strong data-i18n="class">Class</strong><div id="profileClass">{{ student.student_class }}</div></div>
+              <div class="info"><strong data-i18n="school">School</strong><div id="profileSchool">{{ student.school_name }}</div></div>
+              <div class="info"><strong data-i18n="board">Board</strong><div id="profileBoard">{{ student.board }}</div></div>
+              <div class="info"><strong data-i18n="father">Father</strong><div id="profileFather">{{ student.father_name }}</div></div>
+              <div class="info"><strong data-i18n="mobile">Mobile</strong><div id="profileMobile">{{ student.mobile_number }}</div></div>
+              <div class="info"><strong data-i18n="address">Address</strong><div id="profileAddress">{{ student.address }}</div></div>
+              <div class="info"><strong data-i18n="pincode">Pincode</strong><div id="profilePincode">{{ student.pincode }}</div></div>
+              <div class="info"><strong data-i18n="subjects">Subjects</strong><div id="profileSubjects">{{ student.subject }}</div></div>
+              <div class="info"><strong data-i18n="pref_lang">Preferred language</strong><div id="profileLang">{{ student.language }}</div></div>
+            </div>
+
+            <div style="margin-top:12px;">
+              <button class="btn btn-outline" onclick="openLanguageModal()">Change Language</button>
+              <a class="btn" href="{% url 'accounts:edit_profile' %}">Edit Profile</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- ALL SUBJECTS -->
+      <section id="panel-subjects" class="card" style="display:none; margin-top:12px;">
+        <h4 data-i18n="all_subjects">All Subjects</h4>
+        <div id="allSubjectsList" class="grid"></div>
+      </section>
+
+      <!-- QUIZ -->
+      <section id="panel-quiz" class="card" style="display:none; margin-top:12px;">
+        <h4 data-i18n="quiz">Quiz</h4>
+        <div id="quizSubjects" class="grid"></div>
+        <div id="quizLessons" style="display:none; margin-top:8px;"></div>
+        <div id="quizTopics" style="display:none; margin-top:8px;"></div>
+        <div id="quizArea" style="display:none; margin-top:8px;"></div>
+        <div id="quizResult" style="display:none; margin-top:8px;" class="card"></div>
+      </section>
+
+      <!-- PROGRESS -->
+      <section id="panel-progress" class="card" style="display:none; margin-top:12px;">
+        <h4 data-i18n="progress">Progress</h4>
+        <div id="progressWrap"></div>
+      </section>
+
+      <!-- SMART NOTEBOOK -->
+      <section id="panel-notebook" class="card" style="display:none; margin-top:12px;">
+        <h4 data-i18n="notebook">Smart Notebook</h4>
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+          <div style="flex:1; min-width:320px;">
+            <h5 data-i18n="notes">Notes</h5>
+            <textarea id="smartNotes" placeholder="Write notes here..."></textarea>
+            <div class="tool-bar">
+              <button class="btn" onclick="saveNotes()">Save Note</button>
+              <button class="btn btn-outline" onclick="loadSavedNotes()">Load Notes</button>
+              <button class="btn btn-outline" onclick="clearNotes()">Clear</button>
+            </div>
+            <h6 data-i18n="saved_notes">Saved Notes</h6>
+            <div id="savedNotesList"></div>
+          </div>
+
+          <div style="flex:1; min-width:320px;">
+            <h5 data-i18n="drawing">Drawing</h5>
+            <div class="canvas-wrap">
+              <canvas id="drawCanvas" width="1000" height="500"></canvas>
+            </div>
+
+            <div class="tool-bar" style="margin-top:8px;">
+              <label class="small" data-i18n="tools">Tools:</label>
+              <button class="btn" onclick="setTool('pen')">Pen</button>
+              <button class="btn" onclick="setTool('pencil')">Pencil</button>
+              <button class="btn" onclick="setTool('brush')">Brush</button>
+              <button class="btn btn-outline" onclick="toggleEraser()">Eraser</button>
+              <button class="btn" onclick="saveDrawing()">Save Drawing</button>
+              <button class="btn btn-outline" onclick="clearCanvas()">Clear</button>
+            </div>
+
+            <h6 style="margin-top:8px;" data-i18n="saved_drawings">Saved Drawings</h6>
+            <div id="savedDrawings"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CHATBOT -->
+      <section id="panel-chatbot" class="card" style="display:none; margin-top:12px;">
+        <h4 data-i18n="chatbot">Chatbot</h4>
+        <div id="chatBox"></div>
+        <div style="display:flex; gap:8px; margin-top:8px;">
+          <input id="chatInput" placeholder="Ask about subject, lesson or topic..." style="flex:1; padding:8px; border-radius:6px; border:1px solid #ddd;">
+          <button class="btn" onclick="chatAsk()">Send</button>
+        </div>
+        <small class="small">Tip: try "explain topic capacitor" or "what is lesson electricity".</small>
+      </section>
+
+
+      <!-- DICTIONARY TOOLTIP + LANGUAGE MODAL -->
+      <div id="dictTip" class="dict-tip"></div>
+
+      <div id="langModal" style="display:none; position:fixed; right:20px; top:80px; background:#fff; border:1px solid #ddd; padding:12px; border-radius:8px;">
+        <h4>Change UI Language</h4>
+        <select id="langSelect">
+          <option value="en">English</option>
+          <option value="hi">हिन्दी</option>
+          <option value="od">ଓଡ଼ିଆ</option>
+          <option value="mr">मराठी</option>
+        </select>
+        <div style="margin-top:8px;">
+          <button class="btn" onclick="applyLang()">Apply</button>
+          <button class="btn btn-outline" onclick="closeLangModal()">Close</button>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+<script>
+/* =========================
+   CLIENT-SIDE DATA BUILT FROM DJANGO CONTEXT
+   ========================= */
+
+// Toggle dark mode function
+function toggleDark() {
+  document.body.classList.toggle('dark');
+  localStorage.setItem('darkMode', document.body.classList.contains('dark') ? '1' : '0');
+}
+
+// On load, apply dark mode if previously set
+(function() {
+  if(localStorage.getItem('darkMode') === '1') {
+    document.body.classList.add('dark');
+  }
+})();
+const CONTENT = {
+  subjects: [
+    {% for subject in subjects %}
+    {
+      id: {{ subject.id }},
+      name: "{{ subject.name|escapejs }}",
+      description: "{{ subject.description|default:''|escapejs }}",
+      class_level: "{{ subject.class_level|default:''|escapejs }}",
+      courses: [
+        {% for course in subject.courses.all %}
+        {
+          title: "{{ course.title|escapejs }}",
+          lessons: [
+            {% for lesson in course.lessons.all %}
+            {
+              id: {{ lesson.id }},
+              title: "{{ lesson.title|escapejs }}",
+              content_text: "{{ lesson.content_text|default:''|escapejs }}",
+              topics: [
+                {% for topic in lesson.topics.all %}
+                { id: {{ topic.id }}, title: "{{ topic.title|escapejs }}", content: "{{ topic.content|default:''|escapejs }}" }{% if not forloop.last %},{% endif %}
+                {% endfor %}
+              ],
+              quizzes: [
+                {% for quiz in lesson.quizzes.all %}
+                {
+                  id: {{ quiz.id }},
+                  title: "{{ quiz.title|escapejs }}",
+                  time_limit: {{ quiz.time_limit|default:0 }},
+                  questions: [
+                    {% for q in quiz.questions.all %}
+                    {
+                      id: {{ q.id }},
+                      text: "{{ q.text|escapejs }}",
+                      qtype: "{{ q.qtype }}",
+                      marks: {{ q.marks }},
+                      choices: [
+                        {% for c in q.choices.all %}
+                        { id: {{ c.id }}, text: "{{ c.text|escapejs }}", is_correct: {{ c.is_correct|yesno:"true,false" }} }{% if not forloop.last %},{% endif %}
+                        {% endfor %}
+                      ]
+                    }{% if not forloop.last %},{% endif %}
+                    {% endfor %}
+                  ]
+                }{% if not forloop.last %},{% endif %}
+                {% endfor %}
+              ]
+            }{% if not forloop.last %},{% endif %}
+            {% endfor %}
+          ]
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+      ]
+    }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+  ]
+};
+
+/* -------------------------
+   Simple translation dictionaries (starter)
+   - UI strings translated in UI_STRINGS
+   - CONTENT_TRANSLATIONS: map certain words/phrases in content for offline translation
+   You can expand these tables or integrate an API later.
+   ------------------------- */
+const UI_STRINGS = {
+  en: { dashboard:"Dashboard", my_syllabus:"My Syllabus", all_subjects:"All Subjects", quiz:"Quiz", progress:"Progress", notebook:"Smart Notebook", chatbot:"Chatbot", timetable:"Timetable", profile:"Profile", logout:"Logout", roll:"Roll No", class:"Class", school:"School", board:"Board", father:"Father", mobile:"Mobile", address:"Address", pincode:"Pincode", subjects:"Subjects", pref_lang:"Preferred language", saved_drawings:"Saved Drawings", saved_notes:"Saved Notes", hover_tip:"Click subject to view lessons & topics. Hover or select text to see meaning." },
+  hi: { dashboard:"डैशबोर्ड", my_syllabus:"मेरा सिलेबस", all_subjects:"सभी विषय", quiz:"प्रश्नोत्तरी", progress:"प्रगति", notebook:"स्मार्ट नोटबुक", chatbot:"चैटबॉट", timetable:"समय सारिणी", profile:"प्रोफ़ाइल", logout:"लॉगआउट", roll:"रोल नंबर", class:"कक्षा", school:"विद्यालय", board:"बोर्ड", father:"पिता", mobile:"मोबाइल", address:"पता", pincode:"पिनकोड", subjects:"विषय", pref_lang:"पसंदीदा भाषा", saved_drawings:"सेव किए गए ड्रॉइंग", saved_notes:"सेव किए गए नोट्स", hover_tip:"विषय पर क्लिक करें। किसी भी शब्द पर होवर/सेलेक्ट करके अर्थ देखें।" },
+  od: { dashboard:"ଡ୍ୟାଶବୋର୍ଡ", my_syllabus:"ମୋର ସିଲାବସ", all_subjects:"ସମସ୍ତ ବିଷୟ", quiz:"କୁଇଜ୍", progress:"ପ୍ରଗତି", notebook:"ସ୍ମାର୍ଟ ନୋଟ", chatbot:"ଚାଟବଟ", timetable:"ଟାଇମ ଟେବୁଲ", profile:"ପ୍ରୋଫାଇଲ୍", logout:"ଲଗଆଉଟ୍", roll:"ରୋଲ ନମ୍ବର", class:"ଶ୍ରେଣୀ", school:"ସ୍କୁଲ୍", board:"ବୋର୍ଡ", father:"ପିତା", mobile:"ମୋବାଇଲ୍", address:"ଠିକଣା", pincode:"ପିନକୋଡ୍", subjects:"ବିଷୟ", pref_lang:"ପସନ୍ଦର ଭାଷା", saved_drawings:"ସଞ୍ଚିତ ଡ୍ରାଇଂ", saved_notes:"ସଞ୍ଚିତ ନୋଟସ୍", hover_tip:"ବିଷୟକୁ କ୍ଲିକ୍ କରନ୍ତୁ। ଶବ୍ଦରେ ହୋଭର/ସେଲେକ୍ଟ କରି ଅର୍ଥ ଦେଖନ୍ତୁ।" },
+  mr: { dashboard:"डॅशबोर्ड", my_syllabus:"माझे अभ्यासक्रम", all_subjects:"सर्व विषय", quiz:"प्रश्नमंजुषा", progress:"प्रगती", notebook:"स्मार्ट नोटबुक", chatbot:"चॅटबोट", timetable:"वेळापत्रक", profile:"प्रोफाइल", logout:"लॉगआउट", roll:"रोल नंबर", class:"इयत", school:"शाळा", board:"बोर्ड", father:"वडील", mobile:"मोबाईल", address:"पत्ता", pincode:"पिनकोड", subjects:"विषय", pref_lang:"आवडती भाषा", saved_drawings:"जतन केलेले चित्र", saved_notes:"जतन नोंदी", hover_tip:"विषय क्लिक करा. कुठल्या शब्दावर होवर/निवडा आणि अर्थ पाहा." }
+};
+
+/* small offline dictionary (word -> translations/meanings) */
+const DICTIONARY = {
+  "electricity": { en:"electricity", hi:"बिजली", od:"ବିଦ୍ୟୁତ୍ତ", mr:"वीज", meaning_en:"A form of energy resulting from charged particles." },
+  "capacitor": { en:"capacitor", hi:"कॅपेसिटर", od:"କେପାସିଟର୍", mr:"कॅपेसिटर", meaning_en:"An electrical component that stores charge." },
+  "student": { en:"student", hi:"छात्र/छात्रा", od:"ଛାତ୍ର/ଛାତ୍ରୀ", mr:"विद्यार्थी", meaning_en:"A person who is studying at a school or college." },
+  "lesson": { en:"lesson", hi:"पाठ", od:"ପାଠ", mr:"धडा", meaning_en:"Content covering a topic." },
+  "chapter": { en:"chapter", hi:"अध्याय", od:"ଅଧ୍ୟାୟ", mr:"अध्याय", meaning_en:"A section of a course or book." }
+};
+
+/* =========================
+   Utilities
+   ========================= */
+function $id(id){ return document.getElementById(id); }
+function showPanel(name){
+  // hide all panels
+  document.querySelectorAll('main section').forEach(s=>s.style.display='none');
+  const el = $id('panel-'+name);
+  if(el) el.style.display='block';
+  // update page title/subtitle per language
+  updateUITitles();
+}
+
+/* -------------------------
+   UI language functions
+   ------------------------- */
+function setUILangUI(lang){
+  // set select
+  $id('uiLang').value = lang;
+  // update UI strings
+  const map = UI_STRINGS[lang] || UI_STRINGS.en;
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const key = el.getAttribute('data-i18n');
+    if(map[key]) el.innerText = map[key];
+  });
+  // app name
+  $id('appName').innerText = (lang === 'hi' ? 'गेमिफाइड लर्निंग' : (lang==='od' ? 'ଗେମିଫାଇଡ୍ ଲର୍ଣ୍ଣିଙ୍ଗ' : (lang==='mr' ? 'गेमिफाईड लर्निंग' : 'Gamified Learning')));
+  // translate visible content (subject/lesson/topic) using dictionary mapping (best-effort)
+  translateContent(lang);
+}
+function setUILang(lang){
+  localStorage.setItem('uiLang', lang);
+  setUILangUI(lang);
+}
+function updateUITitles(){
+  const lang = localStorage.getItem('uiLang') || '{{ student.language|default:"en" }}';
+  setUILangUI(lang);
+  // subtitle: welcome + name (don't translate name)
+  const map = UI_STRINGS[lang] || UI_STRINGS.en;
+  $id('pageSubtitle').innerText = (map.welcome || "Welcome") + ', {{ student.student_name }}';
+}
+
+/* small content translator: tries phrase-level mapping from DICTIONARY for words in content */
+function translateTextOffline(text, lang){
+  if(!text) return text;
+  // very simple: replace known words
+  let out = text;
+  Object.keys(DICTIONARY).forEach(word=>{
+    const rx = new RegExp('\\b'+word+'\\b','ig');
+    const target = DICTIONARY[word][lang] || DICTIONARY[word].en;
+    out = out.replace(rx, target);
+  });
+  return out;
+}
+function translateContent(lang){
+  // translate subject cards and lessons shown in DOM
+  document.querySelectorAll('.subject-card').forEach(el=>{
+    const titleEl = el.querySelector('h4');
+    if(titleEl) titleEl.innerText = translateTextOffline(titleEl.innerText, lang);
+    const smalls = el.querySelectorAll('.small');
+    smalls.forEach(s=> s.innerText = translateTextOffline(s.innerText, lang));
+  });
+  // translate subject detail
+  if($id('subjectTitle')) $id('subjectTitle').innerText = translateTextOffline($id('subjectTitle').innerText, lang);
+}
+
+/* Language modal */
+function openLanguageModal(){ $id('langModal').style.display='block'; $id('langSelect').value = localStorage.getItem('uiLang') || '{{ student.language|default:"en" }}'; }
+function closeLangModal(){ $id('langModal').style.display='none'; }
+function applyLang(){ const v = $id('langSelect').value; setUILang(v); closeLangModal(); }
+
+/* init language on load */
+(function initLang(){
+  const saved = localStorage.getItem('uiLang') || '{{ student.language|default:"en" }}';
+  setUILangUI(saved);
+})();
+
+/* =========================
+   SYLLABUS / SUBJECT UI
+   ========================= */
+function initSyllabusUI(){
+  // fill All Subjects list
+  const allDiv = $id('allSubjectsList');
+  if(allDiv){
+    allDiv.innerHTML = '';
+    CONTENT.subjects.forEach(s=>{
+      const d = document.createElement('div'); d.className='subject-card card';
+      d.innerHTML = `<h4>${s.name}</h4><div class="small">${s.class_level||''}</div><p class="small">${s.description||''}</p>`;
+      allDiv.appendChild(d);
+    });
+  }
+
+  // progress bars initial values
+  CONTENT.subjects.forEach(s=>{
+    const key = 'progress_sub_' + s.id;
+    const p = Number(localStorage.getItem(key) || 0);
+    const bar = $id('progress-sub-' + s.id);
+    if(bar){ bar.style.width = p + '%'; bar.innerText = p + '%'; }
+  });
+
+  // quizSubjects populate
+  const qsubs = $id('quizSubjects');
+  if(qsubs){
+    qsubs.innerHTML = '';
+    CONTENT.subjects.forEach(s=>{
+      const c = document.createElement('div'); c.className='subject-card card';
+      c.innerHTML = `<h5>${s.name}</h5><small>${s.class_level||''}</small>`;
+      c.onclick = ()=> { openQuizSubject(s.id); showPanel('quiz'); };
+      qsubs.appendChild(c);
+    });
+  }
+}
+function openSubject(subId){
+  const sub = CONTENT.subjects.find(x=>x.id===subId);
+  if(!sub) return;
+  $id('subjectDetail').style.display='block';
+  $id('subjectTitle').innerText = sub.name;
+  const wrap = $id('lessonsWrap'); wrap.innerHTML = '';
+  // loop courses -> lessons
+  (sub.courses || []).forEach(course=>{
+    course.lessons.forEach(lesson=>{
+      const div = document.createElement('div'); div.className = 'card'; div.style.marginBottom='8px';
+      let topics = '<ul class="topic-list">';
+      (lesson.topics || []).forEach(t=> topics += `<li class="topic-item" onmouseover="showDictForWord(event)">${t.title} <button class="btn btn-outline" onclick="openTopic(${subId},${lesson.id},${t.id})">Open</button></li>`);
+      topics += '</ul>';
+      div.innerHTML = `<div style="padding:8px;"><h5>${lesson.title}</h5>${topics}</div>`;
+      wrap.appendChild(div);
+    });
+  });
+  // scroll into view
+  wrap.scrollIntoView({behavior:'smooth'});
+}
+function closeSubjectDetail(){ $id('subjectDetail').style.display='none'; }
+
+/* -------------------------
+   Topic open: show content and quiz button
+   ------------------------- */
+function openTopic(subId, lessonId, topicId){
+  const sub = CONTENT.subjects.find(s=>s.id===subId);
+  if(!sub) return;
+  let lesson=null, topic=null;
+  sub.courses.forEach(course=>{ (course.lessons || []).forEach(l=>{ if(l.id===lessonId) lesson=l; }); });
+  if(!lesson) return;
+  (lesson.topics || []).forEach(t=>{ if(t.id===topicId) topic=t; });
+  const modal = document.createElement('div');
+  modal.style.position='fixed'; modal.style.left='0'; modal.style.top='0'; modal.style.right='0'; modal.style.bottom='0';
+  modal.style.background='rgba(0,0,0,0.4)'; modal.style.display='flex'; modal.style.alignItems='center'; modal.style.justifyContent='center'; modal.style.zIndex=9999;
+  const inner = document.createElement('div'); inner.style.width='90%'; inner.style.maxWidth='900px'; inner.className='card';
+  inner.innerHTML = `<h4>${topic.title}</h4><p>${topic.content||lesson.content_text||'No content available.'}</p><div style="margin-top:8px;"><button class="btn" onclick="startQuizForLesson(${subId},${lessonId})">Take Quiz</button> <button class="btn btn-outline" onclick="document.body.removeChild(this.parentNode.parentNode)">Close</button></div>`;
+  modal.appendChild(inner);
+  document.body.appendChild(modal);
+}
+
+/* =========================
+   QUIZ FLOW (offline)
+   ========================= */
+let CURRENT_QUIZ = null;
+function openQuizSubject(subId){
+  const container = $id('quizLessons'); container.style.display='block'; container.innerHTML = `<button class="btn btn-outline" onclick="backToQuizSubjects()">Back</button><h4>Lessons</h4>`;
+  const sub = CONTENT.subjects.find(s=>s.id===subId);
+  (sub.courses || []).forEach(course=>{
+    (course.lessons || []).forEach(lesson=>{
+      const div = document.createElement('div'); div.className='card'; div.style.marginBottom='8px';
+      div.innerHTML = `<strong>${lesson.title}</strong><div><button class="btn btn-outline" onclick="openQuizTopics(${subId}, ${lesson.id})">Open Topics</button></div>`;
+      container.appendChild(div);
+    });
+  });
+  $id('quizSubjects').style.display='none';
+}
+function backToQuizSubjects(){
+  $id('quizLessons').style.display='none';
+  $id('quizSubjects').style.display='grid';
+  $id('quizTopics').style.display='none';
+  $id('quizArea').style.display='none';
+  $id('quizResult').style.display='none';
+}
+function openQuizTopics(subId, lessonId){
+  const container = $id('quizTopics'); container.style.display='block'; container.innerHTML = `<button class="btn btn-outline" onclick="openQuizSubject(${subId})">Back</button><h4>Topics</h4>`;
+  const sub = CONTENT.subjects.find(s=>s.id===subId);
+  let lesson=null; (sub.courses||[]).forEach(c=> (c.lessons||[]).forEach(l=>{ if(l.id===lessonId) lesson=l; }));
+  (lesson.topics || []).forEach(t=>{ const div = document.createElement('div'); div.className='topic-item'; div.innerHTML=`<span>${t.title}</span> <button class="btn" onclick="startTopicQuiz(${subId}, ${lessonId}, ${t.id})">Take Quiz</button>`; container.appendChild(div); });
+}
+function startTopicQuiz(subId, lessonId, topicId){
+  // choose first quiz in lesson
+  const sub = CONTENT.subjects.find(s=>s.id===subId);
+  let lesson=null; (sub.courses||[]).forEach(c=> (c.lessons||[]).forEach(l=>{ if(l.id===lessonId) lesson=l; }));
+  const quiz = (lesson && lesson.quizzes && lesson.quizzes.length>0) ? lesson.quizzes[0] : null;
+  if(!quiz){ alert('No quiz available for this topic.'); return; }
+  CURRENT_QUIZ = { subId, lessonId, topicId, quiz };
+  renderQuiz(quiz);
+}
+function renderQuiz(quiz){
+  $id('quizArea').style.display='block';
+  $id('quizArea').innerHTML = `<button class="btn btn-outline" onclick="backToQuizTopics()">Back</button><h4>${quiz.title}</h4><div id="quizQuestions"></div><div style="margin-top:10px;"><button class="btn" onclick="submitQuiz()">Submit Quiz</button></div>`;
+  const qWrap = $id('quizQuestions'); qWrap.innerHTML = '';
+  (quiz.questions || []).forEach((q, idx)=>{
+    const qdiv = document.createElement('div'); qdiv.className='card'; qdiv.style.marginBottom='8px';
+    let choicesHtml = '';
+    (q.choices || []).forEach(c=> choicesHtml += `<div><label><input type="radio" name="q_${q.id}" value="${c.id}"> ${c.text}</label></div>`);
+    qdiv.innerHTML = `<strong>Q${idx+1}:</strong> ${q.text}<div style="margin-top:6px;">${choicesHtml}</div>`;
+    qWrap.appendChild(qdiv);
+  });
+}
+function backToQuizTopics(){ $id('quizArea').style.display='none'; }
+function submitQuiz(){
+  const quiz = CURRENT_QUIZ.quiz;
+  let score=0, total=0, details=[];
+  (quiz.questions || []).forEach(q=>{
+    total += Number(q.marks || 1);
+    const sel = document.querySelector(`input[name="q_${q.id}"]:checked`);
+    const chosenId = sel ? Number(sel.value) : null;
+    const correctChoice = (q.choices||[]).find(c=>c.is_correct === true);
+    if(correctChoice && chosenId === Number(correctChoice.id)){ score += Number(q.marks || 1); details.push({q:q.text, correct:true}); }
+    else details.push({q:q.text, correct:false, correctAnswer: correctChoice ? correctChoice.text : 'N/A'});
+  });
+  const gained = Math.round((score/total) * 100);
+  const key = 'progress_sub_' + CURRENT_QUIZ.subId;
+  const prev = Number(localStorage.getItem(key) || 0);
+  const newProg = Math.min(100, Math.max(prev, gained));
+  localStorage.setItem(key, newProg);
+  localStorage.setItem('last_quiz_' + quiz.id, JSON.stringify({score, total, details, date: new Date().toISOString()}));
+  // show result
+  const res = $id('quizResult'); res.style.display='block';
+  res.innerHTML = `<h4>Result: ${score}/${total}</h4><div><strong>Details:</strong><ul>${details.map(d=>`<li>${d.q} — ${d.correct?'<span style="color:green">Correct</span>':'<span style="color:red">Wrong</span>'}${d.correct? '': ' — Answer: '+d.correctAnswer}</li>`).join('')}</ul></div><button class="btn btn-outline" onclick="closeQuizResult()">Close</button>`;
+  // update progress bars & panel
+  const pBar = $id('progress-sub-' + CURRENT_QUIZ.subId);
+  if(pBar){ pBar.style.width = newProg+'%'; pBar.innerText = newProg+'%'; }
+  renderProgress();
+}
+function closeQuizResult(){ $id('quizResult').style.display='none'; }
+
+/* =========================
+   Progress display
+   ========================= */
+function renderProgress(){
+  const wrap = $id('progressWrap'); wrap.innerHTML = '';
+  CONTENT.subjects.forEach(s=>{
+    const key = 'progress_sub_' + s.id;
+    const p = Number(localStorage.getItem(key) || 0);
+    const div = document.createElement('div'); div.className='card'; div.style.marginBottom='8px';
+    div.innerHTML = `<strong>${s.name}</strong><div class="progress" style="margin-top:8px;"><div class="progress-bar" style="width:${p}%">${p}%</div></div>`;
+    wrap.appendChild(div);
+  });
+}
+
+/* =========================
+   Smart Notebook (notes + drawing)
+   ========================= */
+function saveNotes(){
+  const txt = $id('smartNotes').value.trim();
+  if(!txt){ alert('Write something to save'); return; }
+  const notes = JSON.parse(localStorage.getItem('notes_v2') || '[]');
+  const item = { id: Date.now(), text: txt, created: new Date().toISOString() };
+  notes.unshift(item);
+  localStorage.setItem('notes_v2', JSON.stringify(notes));
+  loadSavedNotes();
+  alert('Saved locally');
+}
+function loadSavedNotes(){
+  const list = $id('savedNotesList'); const notes = JSON.parse(localStorage.getItem('notes_v2') || '[]');
+  list.innerHTML = notes.map(n=>`<div class="card" style="padding:8px;margin-bottom:8px;"><div style="white-space:pre-wrap">${escapeHtml(n.text)}</div><div style="margin-top:6px;"><small>${new Date(n.created).toLocaleString()}</small> <button class="btn btn-outline" onclick="viewNote(${n.id})">View</button> <button class="btn btn-outline" onclick="deleteNote(${n.id})">Delete</button></div></div>`).join('');
+}
+function viewNote(id){ const notes = JSON.parse(localStorage.getItem('notes_v2') || '[]'); const n = notes.find(x=>x.id===id); if(n) $id('smartNotes').value = n.text; }
+function deleteNote(id){ let notes = JSON.parse(localStorage.getItem('notes_v2') || '[]'); notes = notes.filter(x=>x.id!==id); localStorage.setItem('notes_v2', JSON.stringify(notes)); loadSavedNotes(); }
+function clearNotes(){ if(confirm('Clear editor?')) $id('smartNotes').value=''; }
+function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, (m)=> ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+/* =========================
+   Drawing canvas tools
+   ========================= */
+const canvas = $id('drawCanvas'); const ctx = canvas.getContext('2d');
+let drawing=false, eraser=false, tool='pen';
+function fitCanvas(){
+  const ratio = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth || canvas.width;
+  const h = canvas.clientHeight || canvas.height;
+  canvas.width = w * ratio;
+  canvas.height = h * ratio;
+  ctx.setTransform(ratio,0,0,ratio,0,0);
+  ctx.lineJoin='round'; ctx.lineCap='round';
+}
+window.addEventListener('resize', fitCanvas); fitCanvas();
+canvas.addEventListener('pointerdown', (e)=>{ drawing=true; ctx.beginPath(); const p = getPos(e); ctx.moveTo(p.x,p.y); });
+canvas.addEventListener('pointermove', (e)=>{ if(!drawing) return; const p=getPos(e); if(eraser){ ctx.clearRect(p.x-10,p.y-10,20,20); } else { setToolStyle(); ctx.lineTo(p.x,p.y); ctx.stroke(); } });
+canvas.addEventListener('pointerup', ()=>{ drawing=false; ctx.beginPath(); });
+canvas.addEventListener('pointerleave', ()=>{ drawing=false; });
+function getPos(e){ const r=canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+function setTool(t){ tool = t; eraser = false; alert('Selected: '+t); }
+function setToolStyle(){
+  if(tool==='pen'){ ctx.lineWidth = 2; ctx.strokeStyle = '#111'; }
+  else if(tool==='pencil'){ ctx.lineWidth = 1.2; ctx.strokeStyle = '#333'; ctx.globalCompositeOperation='source-over'; }
+  else if(tool==='brush'){ ctx.lineWidth = 8; ctx.strokeStyle = '#111'; }
+}
+function toggleEraser(){ eraser = !eraser; alert('Eraser '+ (eraser? 'ON':'OFF')); }
+function clearCanvas(){ ctx.clearRect(0,0,canvas.width,canvas.height); }
+function saveDrawing(){
+  const data = canvas.toDataURL('image/png');
+  const drawings = JSON.parse(localStorage.getItem('drawings_v2')||'[]');
+  drawings.unshift({ id: Date.now(), data, date: new Date().toISOString() });
+  localStorage.setItem('drawings_v2', JSON.stringify(drawings));
+  loadDrawings();
+  alert('Drawing saved locally');
+}
+function loadDrawings(){
+  const wrap = $id('savedDrawings'); const drawings = JSON.parse(localStorage.getItem('drawings_v2')||'[]');
+  wrap.innerHTML = drawings.map(d=>`<div style="display:inline-block;margin:6px;text-align:center;"><img src="${d.data}" class="thumb"/><div style="margin-top:6px;"><small>${new Date(d.date).toLocaleString()}</small><div style="margin-top:6px;"><button class="btn btn-outline" onclick='viewDrawing("${d.data}")'>View</button> <button class="btn btn-outline" onclick='deleteDrawing(${d.id})'>Delete</button></div></div></div>`).join('');
+}
+function viewDrawing(data){ const w = window.open(''); w.document.write(`<img src="${data}" style="width:100%;">`); }
+function deleteDrawing(id){ let drawings = JSON.parse(localStorage.getItem('drawings_v2')||'[]'); drawings = drawings.filter(d=>d.id !== id); localStorage.setItem('drawings_v2', JSON.stringify(drawings)); loadDrawings(); }
+
+/* =========================
+   Chatbot (offline retrieval + simple reasoning)
+   - Searches CONTENT for subject/lesson/topic
+   - Answer templates, synonyms, fallback
+   - This approximates a helpful assistant offline. To use GPT/Gemini replace chatAsk() to call your API.
+   ========================= */
+function chatAppend(who, text){ const box=$id('chatBox'); const d=document.createElement('div'); d.className = who==='user' ? 'msg-user' : 'msg-bot'; d.innerHTML = `<strong>${who==='user' ? 'You' : 'Bot'}:</strong> ${text}`; box.appendChild(d); box.scrollTop = box.scrollHeight; }
+function chatAsk(){
+  const q = $id('chatInput').value.trim(); if(!q) return;
+  chatAppend('user', q); $id('chatInput').value='';
+  setTimeout(()=>{ const ans = offlineAnswer(q); chatAppend('bot', ans); }, 250);
+}
+
+function offlineAnswer(query){
+  const q = query.toLowerCase();
+  let words = q.replace(/[^a-zA-Z]/g, ' ').split(' ').filter(Boolean);
+  let dictEntry = null, foundWord = '';
+  for (let w of words) {
+    if (DICTIONARY[w]) { dictEntry = DICTIONARY[w]; foundWord = w; break; }
+    if (w.endsWith('s') && DICTIONARY[w.slice(0,-1)]) { dictEntry = DICTIONARY[w.slice(0,-1)]; foundWord = w.slice(0,-1); break; }
+  }
+  if(dictEntry) {
+    return `Definition of \"${foundWord}\": ${dictEntry.meaning_en} | Hindi: ${dictEntry.hi} | Odia: ${dictEntry.od} | Marathi: ${dictEntry.mr}`;
+  }
+  if(q.includes('hello') || q.includes('hi')) return 'Hello! Ask about a subject, lesson or topic (e.g., "explain topic capacitor").';
+  if(q.includes('translate')){ // simple translate: "translate <text> to hi"
+    const m = q.match(/translate (.+) to (en|hi|od|mr)/);
+    if(m){ const txt = m[1]; const lang = m[2]; return translateTextOffline(txt, lang); }
+  }
+  // topic / lesson / subject searches
+  let found = searchContent('topic', q) || searchContent('lesson', q) || searchContent('subject', q);
+  if(found) return found;
+  // fallback simple synthesis
+  return "I couldn't find an exact match offline. Try: 'explain topic <name>' or 'lesson <name>' or ask about a subject. You can also ask 'translate <text> to hi|od|mr'.";
+}
+function searchContent(type, name){
+  name = name.replace(/explain|what|is|about|topic|lesson|subject|the/g,'').trim();
+  if(!name) return null;
+  if(type==='topic'){
+    for(const s of CONTENT.subjects){
+      for(const c of s.courses || []){
+        for(const l of c.lessons || []){
+          for(const t of l.topics || []){
+            if(t.title.toLowerCase().includes(name)) return `Topic "${t.title}" (${s.name} — ${l.title}): ${t.content || l.content_text || 'No description available.'}`;
+          }
+        }
+      }
+    }
+  } else if(type==='lesson'){
+    for(const s of CONTENT.subjects){
+      for(const c of s.courses || []){
+        for(const l of c.lessons || []){
+          if(l.title.toLowerCase().includes(name)) return `Lesson "${l.title}" in subject "${s.name}": ${l.content_text || 'No detailed content.'}`;
+        }
+      }
+    }
+  } else if(type==='subject'){
+    for(const s of CONTENT.subjects){
+      if(s.name.toLowerCase().includes(name)) return `Subject "${s.name}": ${s.description || 'No description.'}`;
+    }
+  }
+  return null;
+}
+
+/* =========================
+   Dictionary on hover / selection
+   - Hover or select text to see meaning
+   ========================= */
+const dictTip = $id('dictTip');
+document.addEventListener('mousemove', function(e){ if(dictTip.style.display==='block'){ dictTip.style.left = (e.pageX + 12) + 'px'; dictTip.style.top = (e.pageY + 12) + 'px'; }});
+function showDictForWord(e){
+  let text = (e.target.innerText || '').trim().toLowerCase();
+  let words = text.replace(/[^a-zA-Z]/g, ' ').split(' ').filter(Boolean);
+  let entry = null, foundWord = '';
+  for (let w of words) {
+    if (DICTIONARY[w]) { entry = DICTIONARY[w]; foundWord = w; break; }
+    if (w.endsWith('s') && DICTIONARY[w.slice(0,-1)]) { entry = DICTIONARY[w.slice(0,-1)]; foundWord = w.slice(0,-1); break; }
+  }
+  if(entry){
+    dictTip.innerHTML = `<strong>${foundWord}</strong><div style="margin-top:6px;">${entry.meaning_en || entry.en}<br/><small class="small">${entry.hi} | ${entry.od} | ${entry.mr}</small></div>`;
+    dictTip.style.display = 'block';
+    dictTip.style.left = (e.pageX + 12) + 'px';
+    dictTip.style.top = (e.pageY + 12) + 'px';
+  } else {
+    dictTip.style.display = 'none';
+  }
+}
+document.addEventListener('mouseup', function(ev){
+  let sel = window.getSelection().toString().trim().toLowerCase();
+  let words = sel.replace(/[^a-zA-Z]/g, ' ').split(' ').filter(Boolean);
+  let entry = null, foundWord = '';
+  for (let w of words) {
+    if (DICTIONARY[w]) { entry = DICTIONARY[w]; foundWord = w; break; }
+    if (w.endsWith('s') && DICTIONARY[w.slice(0,-1)]) { entry = DICTIONARY[w.slice(0,-1)]; foundWord = w.slice(0,-1); break; }
+  }
+  if(!foundWord){ dictTip.style.display='none'; return; }
+  if(entry){
+    dictTip.innerHTML = `<strong>${foundWord}</strong><div style="margin-top:6px;">${entry.meaning_en || entry.en}<br/><small class="small">${entry.hi} | ${entry.od} | ${entry.mr}</small></div>`;
+    dictTip.style.display = 'block';
+    dictTip.style.left = (ev.pageX + 12) + 'px';
+    dictTip.style.top = (ev.pageY + 12) + 'px';
+  } else {
+    dictTip.style.display = 'none';
+  }
+});
+document.addEventListener('click', (e)=>{ if(!e.target.closest('.dict-tip')) dictTip.style.display='none'; });
+
+/* =========================
+   Helpers and init
+   ========================= */
+function initAll(){
+  initSyllabusUI(); renderProgress(); loadSavedNotes(); loadDrawings();
+  // populate quizSubjects on initial page
+  const qsubs = $id('quizSubjects');
+  if(qsubs && qsubs.innerHTML.trim()==='') {
+    CONTENT.subjects.forEach(s=>{
+      const card = document.createElement('div'); card.className='subject-card card';
+      card.innerHTML = `<h5>${s.name}</h5><small>${s.class_level||''}</small>`;
+      card.onclick = ()=> { showPanel('quiz'); openQuizSubject(s.id); };
+      qsubs.appendChild(card);
+    });
+  }
+  // apply initial UI lang
+  const initLang = localStorage.getItem('uiLang') || '{{ student.language|default:"en" }}';
+  setUILang(initLang);
+  // default panel
+  showPanel('profile');
+}
+function loadSavedNotes(){ try{ loadSavedNotes; } catch(e){} /* handled by save/load functions */ }
+window.addEventListener('DOMContentLoaded', ()=>{ initAll(); });
+
+/* Expose some functions for buttons used inline */
+window.openSubject = openSubject;
+window.closeSubjectDetail = closeSubjectDetail;
+window.openTopic = openTopic;
+window.setTool = setTool;
+window.toggleEraser = toggleEraser;
+window.saveDrawing = saveDrawing;
+window.clearCanvas = clearCanvas;
+window.loadSavedNotes = loadSavedNotes;
+window.saveNotes = saveNotes;
+window.loadDrawings = loadDrawings;
+window.viewDrawing = viewDrawing;
+window.deleteDrawing = deleteDrawing;
+window.viewNote = viewNote;
+window.deleteNote = deleteNote;
+window.chatAsk = chatAsk;
+window.chatSend = chatAsk; // alias
+window.setUILang = setUILang;
+window.openLanguageModal = openLanguageModal;
+window.closeLangModal = closeLangModal;
+window.applyLang = applyLang;
+
+</script>
+</body>
+</html>
